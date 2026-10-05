@@ -1,0 +1,16 @@
+﻿# Python ve Ortam Dosyaları
+.venv/
+venv/
+env/
+ENV/
+__pycache__/
+*.py[cod]
+*$py.class
+
+# IDE / Editör
+.vscode/
+.idea/
+
+# İşletim Sistemi
+Thumbs.db
+.DS_Store
