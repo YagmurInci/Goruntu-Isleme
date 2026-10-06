@@ -62,7 +62,10 @@ class App:
 
         # self.current_image: Üzerinde filtreler ve işlemler yapılan çalışma görüntüsü.
         #                     Tüm işlemler her zaman tam çözünürlüklü bu veri üzerinde yapılır.
-        self.current_image = None
+        # self.bloksuz_goruntu: Blok eklenmeden önceki temiz görüntüyü saklar.
+        #                       Butona tekrar tekrar basıldığında blokların üst üste birikmesini (2->4->6)
+        #                       önler ve daima tam olarak 2 blok kalmasını sağlar.
+        self.bloksuz_goruntu = None
 
         # self.tk_image: Tkinter Label üzerinde gösterilen PhotoImage nesnesinin referansı.
         #                Python Garbage Collector'ın (çöp toplayıcı) görseli bellekten
@@ -258,6 +261,7 @@ class App:
             # Orijinal renkli görüntüyü koru ve çalışma kopyasını hazırla
             self.original_image = resim
             self.current_image = resim.copy()
+            self.bloksuz_goruntu = None
 
             # Ekranda göster
             self.goruntuyu_goster()
@@ -284,6 +288,7 @@ class App:
         #    korumak, boyut uyuşmazlığı hatalarını önlemek ve pipeline tutarlılığı sağlamaktır.
         #    Burada 3 kanala da aynı gri değer kopyalanır (R=G=B=Gri).
         self.current_image = cv2.cvtColor(gri, cv2.COLOR_GRAY2BGR)
+        self.bloksuz_goruntu = None
 
         self.goruntuyu_goster()
 
@@ -308,6 +313,7 @@ class App:
 
         # Saklanan orijinal görüntüyü kopyalayarak çalışma alanına aktar
         self.current_image = self.original_image.copy()
+        self.bloksuz_goruntu = None
 
         self.goruntuyu_goster()
 
@@ -323,6 +329,15 @@ class App:
         """
         if not self.goruntu_kontrol():
             return
+
+        # Blokların üst üste birikmesini (2 -> 4 -> 6) önleme mantığı:
+        # Eğer butona ilk kez basılıyorsa o anki görüntünün temiz halini sakla.
+        # Eğer butona tekrar basılıyorsa önce görüntüyü temiz haline döndür,
+        # böylece ekranda her zaman tam olarak BLOK_ADEDI (2) blok kalır.
+        if self.bloksuz_goruntu is None:
+            self.bloksuz_goruntu = self.current_image.copy()
+        else:
+            self.current_image = self.bloksuz_goruntu.copy()
 
         # Görüntünün yükseklik (satır sayısı) ve genişlik (sütun sayısı) değerlerini al
         # shape[0] = yükseklik (y ekseni), shape[1] = genişlik (x ekseni)
