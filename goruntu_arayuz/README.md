@@ -35,8 +35,11 @@ Uygulama açıldığında sol paneldeki **"Görüntü Aç"** butonuna basarak pr
 1. **Görüntü Aç:** `png`, `jpg`, `jpeg`, `bmp` formatlarındaki görüntüleri BGR formatında okur. Orijinal kopyayı (`self.original_image`) saklarken çalışma kopyası (`self.current_image`) üzerinde işlem yapar.
 2. **Renkli → Gri:** Görüntüyü `cv2.COLOR_BGR2GRAY` ile griye çevirir. Ardından kanal uyuşmazlığını önlemek için tekrar 3 kanala (`cv2.COLOR_GRAY2BGR`) genişletir.
 3. **Gri → Renkli (Orijinal):** Orijinal saklanan renkli görüntüyü geri yükler.
-4. **10x10 Rastgele Blok Ekle:** Görüntünün rastgele koordinatlarına 10x10 boyutunda siyah (değeri 0) bloklar yerleştirir. Dizi sınırları dışına taşmaması için `[0, h - 10]` ve `[0, w - 10]` aralıklarında sınır kontrolü yapılır.
-5. **Kaydet (PNG):** Mevcut çalışma görüntüsünü kayıpsız PNG formatında diske kaydeder (böylece siyah piksel değerleri kesinlikle 0 olarak kalır).
+4. **10x10 Rastgele Blok Ekle:** Görüntünün rastgele koordinatlarına 10x10 boyutunda siyah (değeri 0) iki blok yerleştirir (her basışta önceki blokları temizleyerek tam 2 blok tutar).
+5. **DPI / Seviye Uygula:** Arayüzden seçilen hedef DPI (300, 150, 75, 50, 25) ve gri seviye sayısını (256, 64, 16, 2) orijinal görüntüye uygular ve ekranda gösterir.
+6. **Karşılaştırmalı Kaydet:** Orijinal görüntü ile işlenmiş görüntüyü yan yana (`cv2.hconcat`) birleştirip, altlarına etiket yazarak tek bir kayıpsız PNG olarak kaydeder.
+7. **4 Seviyeyi Birden Karşılaştır:** Seçili DPI ayarıyla aynı görüntüyü 256, 64, 16 ve 2 seviyelerinde işler; 2x2 ızgara şeklinde tek bir PNG olarak kaydeder ve ekranda gösterir.
+8. **Kaydet (PNG):** Mevcut çalışma görüntüsünü kayıpsız PNG formatında diske kaydeder (böylece siyah piksel değerleri kesinlikle 0 olarak kalır).
 
 ---
 

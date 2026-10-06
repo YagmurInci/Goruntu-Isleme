@@ -23,7 +23,7 @@ import os
 import random
 import base64
 import tkinter as tk
-from tkinter import filedialog, messagebox
+from tkinter import filedialog, messagebox, ttk
 import cv2
 import numpy as np
 
@@ -49,8 +49,8 @@ class App:
         """Uygulama penceresini ve bileşenlerini başlatır."""
         self.root = root
         self.root.title("Görsel Programlama - Görüntü İşleme Laboratuvarı")
-        self.root.geometry("1050x700")
-        self.root.minsize(850, 550)
+        self.root.geometry("1120x780")
+        self.root.minsize(950, 650)
         self.root.configure(bg="#f4f5f7")
 
         # ----------------------------------------------------------------------
@@ -62,6 +62,8 @@ class App:
 
         # self.current_image: Üzerinde filtreler ve işlemler yapılan çalışma görüntüsü.
         #                     Tüm işlemler her zaman tam çözünürlüklü bu veri üzerinde yapılır.
+        self.current_image = None
+
         # self.bloksuz_goruntu: Blok eklenmeden önceki temiz görüntüyü saklar.
         #                       Butona tekrar tekrar basıldığında blokların üst üste birikmesini (2->4->6)
         #                       önler ve daima tam olarak 2 blok kalmasını sağlar.
@@ -83,46 +85,117 @@ class App:
             ("Renkli → Gri", self.renkli_to_gri),
             ("Gri → Renkli (Orijinal)", self.gri_to_renkli),
             (f"{BLOK_BOYUTU}x{BLOK_BOYUTU} Rastgele Blok Ekle", self.blok_ekle),
+            ("DPI / Seviye Uygula", self.dpi_ve_seviye_uygula),
+            ("Karşılaştırmalı Kaydet", self.karsilastirmali_kaydet),
+            ("4 Seviyeyi Birden Karşılaştır", self.dort_seviye_karsilastir),
             ("Kaydet (PNG)", self.goruntu_kaydet),
         ]
 
         # Arayüzü oluştur
         self._arayuz_olustur()
 
+    def _ayarlar_panelini_olustur(self):
+        """DPI ve Gri Seviye giriş kontrollerini barındıran şık ayar kutusunu oluşturur."""
+        ayar_kutusu = tk.LabelFrame(
+            self.sol_panel,
+            text="DPI & Gri Seviye Ayarları",
+            font=("Helvetica", 9, "bold"),
+            fg="#ecf0f1",
+            bg="#34495e",
+            padx=8,
+            pady=8
+        )
+        ayar_kutusu.pack(fill=tk.X, pady=(8, 6))
+
+        # 1. Orijinal DPI Girişi
+        tk.Label(
+            ayar_kutusu,
+            text="Orijinal DPI:",
+            font=("Helvetica", 8),
+            fg="#ecf0f1",
+            bg="#34495e",
+            anchor=tk.W
+        ).pack(fill=tk.X)
+        self.entry_orig_dpi = tk.Entry(ayar_kutusu, font=("Helvetica", 9))
+        self.entry_orig_dpi.insert(0, "300")
+        self.entry_orig_dpi.pack(fill=tk.X, pady=(1, 6))
+
+        # 2. Hedef DPI Seçimi (Combobox)
+        tk.Label(
+            ayar_kutusu,
+            text="Hedef DPI (Çözünürlük):",
+            font=("Helvetica", 8),
+            fg="#ecf0f1",
+            bg="#34495e",
+            anchor=tk.W
+        ).pack(fill=tk.X)
+        self.combo_hedef_dpi = ttk.Combobox(
+            ayar_kutusu,
+            values=["300", "150", "75", "50", "25"],
+            font=("Helvetica", 9)
+        )
+        self.combo_hedef_dpi.set("300")
+        self.combo_hedef_dpi.pack(fill=tk.X, pady=(1, 6))
+
+        # 3. Gri Seviye Sayısı (Nicemleme) Seçimi
+        tk.Label(
+            ayar_kutusu,
+            text="Gri Seviye (Nicemleme):",
+            font=("Helvetica", 8),
+            fg="#ecf0f1",
+            bg="#34495e",
+            anchor=tk.W
+        ).pack(fill=tk.X)
+        self.combo_gri_seviye = ttk.Combobox(
+            ayar_kutusu,
+            values=["256", "64", "16", "2"],
+            state="readonly",
+            font=("Helvetica", 9)
+        )
+        self.combo_gri_seviye.set("256")
+        self.combo_gri_seviye.pack(fill=tk.X, pady=(1, 3))
+
     def _arayuz_olustur(self):
         """Pencere düzenini (sol panel, sağ görüntüleme alanı, durum çubuğu) kurar."""
         # 1. Sol Buton Paneli
-        self.sol_panel = tk.Frame(self.root, width=220, bg="#2c3e50", padx=15, pady=15)
+        self.sol_panel = tk.Frame(self.root, width=250, bg="#2c3e50", padx=12, pady=12)
         self.sol_panel.pack(side=tk.LEFT, fill=tk.Y)
         self.sol_panel.pack_propagate(False)  # Sabit genişliği koru
 
         panel_baslik = tk.Label(
             self.sol_panel,
             text="İŞLEMLER",
-            font=("Helvetica", 13, "bold"),
+            font=("Helvetica", 12, "bold"),
             fg="#ecf0f1",
             bg="#2c3e50",
-            pady=10
+            pady=6
         )
-        panel_baslik.pack(fill=tk.X, pady=(0, 10))
+        panel_baslik.pack(fill=tk.X, pady=(0, 4))
 
         # Butonları dinamik olarak listeden oluştur
         for yazi, komut in self.BUTONLAR:
+            # DPI / Seviye Uygula butonunun hemen öncesine ayarlar panelini yerleştir
+            if yazi == "DPI / Seviye Uygula":
+                self._ayarlar_panelini_olustur()
+
+            # Buton rengi ve vurgusu
+            buton_bg = "#16a085" if "Uygula" in yazi else ("#2980b9" if "Karşılaştır" in yazi else "#34495e")
+
             btn = tk.Button(
                 self.sol_panel,
                 text=yazi,
                 command=komut,
-                font=("Helvetica", 10),
-                bg="#34495e",
+                font=("Helvetica", 9, "bold" if "Uygula" in yazi or "Aç" in yazi else "normal"),
+                bg=buton_bg,
                 fg="#ffffff",
                 activebackground="#1abc9c",
                 activeforeground="#ffffff",
                 relief=tk.FLAT,
                 bd=0,
-                pady=8,
+                pady=6,
                 cursor="hand2"
             )
-            btn.pack(fill=tk.X, pady=4)
+            btn.pack(fill=tk.X, pady=3)
 
         # 2. Alt Durum Çubuğu (Status Bar)
         self.durum_cubugu = tk.Label(
@@ -414,6 +487,250 @@ class App:
                 messagebox.showerror("Hata", "Görüntü PNG formatında kodlanamadı.")
         except Exception as e:
             messagebox.showerror("Kaydetme Hatası", f"Dosya kaydedilirken bir hata oluştu:\n{e}")
+
+    # ==========================================================================
+    # YENİ ÖZELLİKLER: DPI DÜŞÜRME VE GRİ SEVİYE NİCEMLEME METOTLARI
+    # ==========================================================================
+
+    def _dpi_ve_seviye_al(self):
+        """
+        Arayüzdeki DPI ve Gri Seviye kontrollerinden girilen değerleri okur ve doğrular.
+        Hatalı giriş veya hedef > orijinal durumunda kullanıcıya uyarı gösterir.
+        Geçerliyse (orig_dpi, hedef_dpi, seviye) demetini döndürür.
+        """
+        try:
+            orig_dpi = float(self.entry_orig_dpi.get().strip())
+            hedef_dpi = float(self.combo_hedef_dpi.get().strip())
+            seviye = int(self.combo_gri_seviye.get().strip())
+
+            if orig_dpi <= 0 or hedef_dpi <= 0:
+                messagebox.showwarning("Geçersiz DPI", "DPI değerleri sıfırdan büyük pozitif bir sayı olmalıdır!")
+                return None, None, None
+
+            # Hedef DPI orijinalden büyükse çözünürlük düşürme mantığına aykırı olduğu için uyar
+            if hedef_dpi > orig_dpi:
+                messagebox.showwarning(
+                    "DPI Uyarısı",
+                    f"Hedef DPI ({int(hedef_dpi)}), Orijinal DPI'dan ({int(orig_dpi)}) büyük olamaz!\n"
+                    "Bu işlem DPI (uzamsal çözünürlük) düşürmek için tasarlanmıştır."
+                )
+                return None, None, None
+
+            return orig_dpi, hedef_dpi, seviye
+        except ValueError:
+            messagebox.showwarning("Geçersiz Giriş", "Lütfen DPI alanlarına geçerli sayısal değerler girin!")
+            return None, None, None
+
+    def goruntu_isle(self, kaynak_resim, orig_dpi, hedef_dpi, seviye):
+        """
+        Verilen kaynak görüntüye seçilen DPI ve Gri Seviye işlemlerini uygular.
+        Kaynak görüntüyü doğrudan değiştirmez, işlenmiş yeni bir NumPy matrisi döndürür.
+
+        1. DPI (Uzamsal Çözünürlük) Düşürme:
+           - Oran = hedef_dpi / orig_dpi
+           - cv2.resize(..., INTER_AREA) ile piksel sayısı küçültülür.
+           - Kaybolan çözünürlük net görülsün diye cv2.resize(..., INTER_NEAREST) ile
+             orijinal boyuta geri büyütülür (bloklu/pikselli mozaik görünüm elde edilir).
+
+        2. Gri Seviye (Yoğunluk Nicemleme - Quantization):
+           - Seviye 256 ise görüntü renkliyse renkli kalır, nicemleme uygulanmaz (etkisiz kalır).
+           - Seviye < 256 (64, 16, 2) ise görüntü BGR2GRAY ile griye çevrilir.
+           - Matematiksel Formül:
+             adim = 256 // seviye
+             yeni = (gri // adim) * (255 // (seviye - 1))  -> sonuç np.uint8
+           - Uç durum kontrolü:
+             * Seviye 2: adim = 128, gri//128 in {0,1}, skaler = 255. Sonuç sadece {0, 255}.
+             * Seviye 256: adim = 1, skaler = 1. Görüntü değişmez.
+           - Arayüz ve pipeline gösterim tutarlılığı için tekrar 3 kanala (GRAY2BGR) çevrilir.
+        """
+        islenmis = kaynak_resim.copy()
+        h, w = islenmis.shape[:2]
+
+        # ----------------------------------------------------------------------
+        # 1. ADIM: DPI (UZAMSAL ÇÖZÜNÜRLÜK) DÜŞÜRME
+        # ----------------------------------------------------------------------
+        if hedef_dpi < orig_dpi:
+            oran = hedef_dpi / orig_dpi
+            yeni_w = max(1, int(w * oran))
+            yeni_h = max(1, int(h * oran))
+
+            # INTER_AREA: Piksel sayısını azaltırken (alt örnekleme / subsampling) en kaliteli sonucu verir
+            kucuk = cv2.resize(islenmis, (yeni_w, yeni_h), interpolation=cv2.INTER_AREA)
+
+            # INTER_NEAREST: Küçülen görüntüyü orijinal boyuta geri büyütürken en yakın komşuyu kopyalar.
+            # Böylece yeni pikseller uydurmaz, kaybolan çözünürlük bloklu/pikselli olarak göze çarpar.
+            islenmis = cv2.resize(kucuk, (w, h), interpolation=cv2.INTER_NEAREST)
+
+        # ----------------------------------------------------------------------
+        # 2. ADIM: GRİ SEVİYE (YOĞUNLUK NİCEMLEME) AZALTMA
+        # ----------------------------------------------------------------------
+        if seviye < 256:
+            # Görüntüyü gri tonlamaya çevir
+            gri = cv2.cvtColor(islenmis, cv2.COLOR_BGR2GRAY)
+
+            # Adım ve ölçekleme katsayılarını hesapla
+            adim = 256 // seviye
+            skaler = 255 // (seviye - 1)
+
+            # Nicemleme formülü: (gri // adim) * (255 // (seviye - 1))
+            nicemlenmis = ((gri // adim) * skaler).astype(np.uint8)
+
+            # Arayüz ve pipeline tutarlılığı için tekrar 3 kanala dönüştür
+            islenmis = cv2.cvtColor(nicemlenmis, cv2.COLOR_GRAY2BGR)
+
+        return islenmis
+
+    def dpi_ve_seviye_uygula(self):
+        """
+        Arayüzden seçilen hedef DPI ve gri seviye değerlerini orijinal görüntüye
+        uygular ve sonucu ekranda gösterir.
+        Her zaman orijinal görüntüden ('self.original_image') başlar, böylece
+        üst üste bozulma yaşanmaz.
+        """
+        if not self.goruntu_kontrol():
+            return
+
+        orig_dpi, hedef_dpi, seviye = self._dpi_ve_seviye_al()
+        if orig_dpi is None:
+            return
+
+        # Orijinal görüntüden başlayarak işlemleri uygula
+        self.current_image = self.goruntu_isle(self.original_image, orig_dpi, hedef_dpi, seviye)
+        self.bloksuz_goruntu = None
+
+        self.goruntuyu_goster()
+
+    @staticmethod
+    def _etiket_ekle(resim, metin):
+        """
+        Verilen görüntünün altına siyah bir şerit ekler ve üzerine cv2.putText ile
+        açıklayıcı etiket yazar.
+        (cv2.putText Türkçe karakterleri desteklemediği için metin ASCII olmalıdır).
+        """
+        h, w = resim.shape[:2]
+        serit_h = 42
+        serit = np.zeros((serit_h, w, 3), dtype=np.uint8)
+        # Metni şeridin üzerine yaz (cv2.putText BGR formatında beyaz: (255, 255, 255))
+        cv2.putText(
+            serit,
+            metin,
+            (12, 28),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.7,
+            (255, 255, 255),
+            2,
+            cv2.LINE_AA
+        )
+        # Görüntü ile etiket şeridini dikeyde birleştir (vconcat)
+        return cv2.vconcat([resim, serit])
+
+    def karsilastirmali_kaydet(self):
+        """
+        ORİJİNAL görüntü ile seçili ayarlarla İŞLENMİŞ görüntüyü yan yana (cv2.hconcat)
+        birleştirir, her ikisinin altına açıklayıcı etiket yazar ve tek bir kayıpsız
+        PNG dosyası olarak kaydeder.
+        """
+        if not self.goruntu_kontrol():
+            return
+
+        orig_dpi, hedef_dpi, seviye = self._dpi_ve_seviye_al()
+        if orig_dpi is None:
+            return
+
+        # 1. Orijinal ve işlenmiş görüntüleri hazırla
+        orijinal = self.original_image.copy()
+        islenmis = self.goruntu_isle(self.original_image, orig_dpi, hedef_dpi, seviye)
+
+        # 2. Her ikisinin altına etiket ekle (ASCII karakterlerle: ş, ı, ğ kullanılmaz)
+        etiket_sol = f"Orijinal (DPI: {int(orig_dpi)})"
+        etiket_sag = f"DPI: {int(hedef_dpi)} | Seviye: {seviye}"
+
+        sol_resim = self._etiket_ekle(orijinal, etiket_sol)
+        sag_resim = self._etiket_ekle(islenmis, etiket_sag)
+
+        # 3. İki görüntüyü yan yana birleştir (cv2.hconcat)
+        karsilastirma = cv2.hconcat([sol_resim, sag_resim])
+
+        # 4. Kaydetme diyaloğu aç
+        dosya_yolu = filedialog.asksaveasfilename(
+            title="Karşılaştırmalı Görüntüyü Kaydet",
+            defaultextension=".png",
+            filetypes=[("PNG Dosyası (*.png)", "*.png")]
+        )
+        if not dosya_yolu:
+            return
+
+        # 5. Türkçe karakterli Windows yolları için güvenli kayıpsız PNG kaydı
+        try:
+            basarili, kodlanmis = cv2.imencode(".png", karsilastirma)
+            if basarili:
+                kodlanmis.tofile(dosya_yolu)
+                messagebox.showinfo(
+                    "Başarılı",
+                    "Karşılaştırma görüntüsü başarıyla kaydedildi!\n"
+                    f"Dosya: {os.path.basename(dosya_yolu)}"
+                )
+            else:
+                messagebox.showerror("Hata", "Görüntü PNG formatında kodlanamadı.")
+        except Exception as e:
+            messagebox.showerror("Kaydetme Hatası", f"Dosya kaydedilirken hata oluştu:\n{e}")
+
+    def dort_seviye_karsilastir(self):
+        """
+        Seçili hedef DPI ayarı ile birlikte aynı görüntüyü 256, 64, 16 ve 2
+        gri seviyesinde işler. 4 sonucu 2x2 ızgara formatında tek bir görüntüde
+        birleştirir, her birinin altına seviye etiketini yazar.
+        Sonucu hem ekranda gösterir hem de PNG olarak kaydeder.
+        """
+        if not self.goruntu_kontrol():
+            return
+
+        orig_dpi, hedef_dpi, _ = self._dpi_ve_seviye_al()
+        if orig_dpi is None:
+            return
+
+        seviyeler = [256, 64, 16, 2]
+        etiketli_resimler = []
+
+        for sev in seviyeler:
+            # Her seviye için işle
+            islenmis = self.goruntu_isle(self.original_image, orig_dpi, hedef_dpi, sev)
+            etiket = f"Seviye: {sev} (DPI: {int(hedef_dpi)})"
+            etiketli = self._etiket_ekle(islenmis, etiket)
+            etiketli_resimler.append(etiketli)
+
+        # 2x2 ızgara formatında birleştir:
+        # [Seviye 256] [Seviye 64]
+        # [Seviye 16 ] [Seviye 2 ]
+        ust_satir = cv2.hconcat([etiketli_resimler[0], etiketli_resimler[1]])
+        alt_satir = cv2.hconcat([etiketli_resimler[2], etiketli_resimler[3]])
+        karsilastirma_izgara = cv2.vconcat([ust_satir, alt_satir])
+
+        # Çalışma görüntüsü olarak ata ve ekranda göster
+        self.current_image = karsilastirma_izgara
+        self.bloksuz_goruntu = None
+        self.goruntuyu_goster()
+
+        # Kaydetme diyaloğu aç
+        dosya_yolu = filedialog.asksaveasfilename(
+            title="4 Seviyeli Karşılaştırma Görüntüsünü Kaydet",
+            defaultextension=".png",
+            filetypes=[("PNG Dosyası (*.png)", "*.png")]
+        )
+        if dosya_yolu:
+            try:
+                basarili, kodlanmis = cv2.imencode(".png", karsilastirma_izgara)
+                if basarili:
+                    kodlanmis.tofile(dosya_yolu)
+                    messagebox.showinfo(
+                        "Başarılı",
+                        "4 seviyeli karşılaştırma görüntüsü başarıyla kaydedildi!\n"
+                        f"Dosya: {os.path.basename(dosya_yolu)}"
+                    )
+                else:
+                    messagebox.showerror("Hata", "Görüntü PNG formatında kodlanamadı.")
+            except Exception as e:
+                messagebox.showerror("Kaydetme Hatası", f"Dosya kaydedilirken hata oluştu:\n{e}")
 
 
 # ==============================================================================
