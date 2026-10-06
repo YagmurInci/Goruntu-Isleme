@@ -20,6 +20,7 @@ nesnesine aktarılarak ekranda görüntülenir.
 """
 
 import os
+import random
 import base64
 import tkinter as tk
 from tkinter import filedialog, messagebox
@@ -33,8 +34,9 @@ import numpy as np
 MAKS_GOSTERIM_GENISLIK = 900
 MAKS_GOSTERIM_YUKSEKLIK = 800
 
-# Köşelere eklenecek siyah blokların piksel cinsinden kenar uzunluğu:
+# Eklenecek siyah blokların piksel cinsinden kenar uzunluğu ve adedi:
 BLOK_BOYUTU = 10
+BLOK_ADEDI = 2  # Her tıklamada görüntünün rastgele konumlarına eklenecek blok sayısı
 
 
 class App:
@@ -77,7 +79,7 @@ class App:
             ("Görüntü Aç", self.goruntu_ac),
             ("Renkli → Gri", self.renkli_to_gri),
             ("Gri → Renkli (Orijinal)", self.gri_to_renkli),
-            (f"{BLOK_BOYUTU}x{BLOK_BOYUTU} Blok Ekle", self.blok_ekle),
+            (f"{BLOK_BOYUTU}x{BLOK_BOYUTU} Rastgele Blok Ekle", self.blok_ekle),
             ("Kaydet (PNG)", self.goruntu_kaydet),
         ]
 
@@ -311,11 +313,13 @@ class App:
 
     def blok_ekle(self):
         """
-        Görüntünün sol-üst ve sağ-alt köşelerine BLOK_BOYUTUxBLOK_BOYUTU (10x10)
-        boyutunda siyah (değeri 0) iki blok yerleştirir.
+        Görüntünün rastgele konumlarına BLOK_ADEDI adet BLOK_BOYUTUxBLOK_BOYUTU (10x10)
+        boyutunda siyah (değeri 0) blok yerleştirir.
         
-        Küçük görüntülerde dizi sınırları dışına taşma (IndexError) olmaması için
-        sınır kontrolü (min) yapılır.
+        Sınır Kontrolü:
+        Rastgele seçilen (x, y) başlangıç noktalarına blok boyutu eklendiğinde
+        görüntü sınırları dışına taşma (IndexError / out of bounds) olmaması için
+        koordinatlar [0, h - bh] ve [0, w - bw] aralığında sınırlandırılır.
         """
         if not self.goruntu_kontrol():
             return
@@ -324,38 +328,36 @@ class App:
         # shape[0] = yükseklik (y ekseni), shape[1] = genişlik (x ekseni)
         h, w = self.current_image.shape[:2]
 
-        # Sınır kontrolü: Eğer görüntü 10x10'dan küçükse taşmayı önlemek için sınırla
+        # Sınır kontrolü: Eğer görüntü blok boyutundan küçükse taşmayı önlemek için sınırla
         bh = min(BLOK_BOYUTU, h)
         bw = min(BLOK_BOYUTU, w)
 
-        # ----------------------------------------------------------------------
-        # YÖNTEM 1: DİLİMLEME (NUMPY SLICING) - [ÖNERİLEN VE HIZLI YÖNTEM]
-        # NumPy'da indeksleme: [satır_aralığı, sütun_aralığı] -> [y1:y2, x1:x2]
-        # Renk sırası BGR olup tüm kanallara 0 atanarak piksel siyah yapılır.
-        # ----------------------------------------------------------------------
-        
-        # 1. Sol Üst Köşe: satır 0..bh, sütun 0..bw
-        self.current_image[0:bh, 0:bw] = 0
+        # Bloğun görüntünün dışına taşmaması için seçilebilecek maksimum başlangıç koordinatları:
+        maks_y = max(0, h - bh)
+        maks_x = max(0, w - bw)
 
-        # 2. Sağ Alt Köşe: satır (h-bh)..h, sütun (w-bw)..w
-        self.current_image[h - bh:h, w - bw:w] = 0
+        # Belirlenen sayıda (BLOK_ADEDI) rastgele blok yerleştir
+        for i in range(BLOK_ADEDI):
+            # Rastgele sol-üst köşe başlangıç koordinatları üret
+            rastgele_y = random.randint(0, maks_y)
+            rastgele_x = random.randint(0, maks_x)
 
-        # ----------------------------------------------------------------------
-        # YÖNTEM 2: İÇ İÇE DÖNGÜ (FOR LOOP) İLE PİKSEL PİKSEL DEĞER ATAMA
-        # (Hocaya piksel adresleme ve XY uzayı mantığını anlatmak için alternatif kod):
-        # ----------------------------------------------------------------------
-        # # Sol üst köşe için piksel piksel döngü:
-        # for y in range(0, bh):          # y koordinatı (dikey/satır)
-        #     for x in range(0, bw):      # x koordinatı (yatay/sütun)
-        #         # NumPy'da koordinat [y, x] sırasındadır!
-        #         # BGR kanallarının tamamı 0 yapılarak siyah renk verilir:
-        #         self.current_image[y, x] = [0, 0, 0]
-        #
-        # # Sağ alt köşe için piksel piksel döngü:
-        # for y in range(h - bh, h):      # y koordinatı: (yükseklik - bh) -> yükseklik
-        #     for x in range(w - bw, w):  # x koordinatı: (genişlik - bw) -> genişlik
-        #         self.current_image[y, x] = [0, 0, 0]
-        # ----------------------------------------------------------------------
+            # ------------------------------------------------------------------
+            # YÖNTEM 1: DİLİMLEME (NUMPY SLICING) - [HIZLI VE VEKTÖREL YÖNTEM]
+            # NumPy indeksleme: [satır_aralığı, sütun_aralığı] -> [y:y+bh, x:x+bw]
+            # BGR renk kanallarının tamamına 0 atanarak blok siyaha boyanır.
+            # ------------------------------------------------------------------
+            self.current_image[rastgele_y:rastgele_y + bh, rastgele_x:rastgele_x + bw] = 0
+
+            # ------------------------------------------------------------------
+            # YÖNTEM 2: İÇ İÇE DÖNGÜ (FOR LOOP) İLE PİKSEL PİKSEL DEĞER ATAMA
+            # (Hocaya piksel adresleme ve Kartezyen uzay mantığını anlatmak için alternatif):
+            # ------------------------------------------------------------------
+            # for py in range(rastgele_y, rastgele_y + bh):     # y koordinatı (satırlar)
+            #     for px in range(rastgele_x, rastgele_x + bw): # x koordinatı (sütunlar)
+            #         # NumPy matrisinde [y, x] adresindeki pikselin tüm kanalları 0 (siyah) yapılır:
+            #         self.current_image[py, px] = [0, 0, 0]
+            # ------------------------------------------------------------------
 
         self.goruntuyu_goster()
 

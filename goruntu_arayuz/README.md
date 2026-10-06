@@ -35,7 +35,7 @@ Uygulama açıldığında sol paneldeki **"Görüntü Aç"** butonuna basarak pr
 1. **Görüntü Aç:** `png`, `jpg`, `jpeg`, `bmp` formatlarındaki görüntüleri BGR formatında okur. Orijinal kopyayı (`self.original_image`) saklarken çalışma kopyası (`self.current_image`) üzerinde işlem yapar.
 2. **Renkli → Gri:** Görüntüyü `cv2.COLOR_BGR2GRAY` ile griye çevirir. Ardından kanal uyuşmazlığını önlemek için tekrar 3 kanala (`cv2.COLOR_GRAY2BGR`) genişletir.
 3. **Gri → Renkli (Orijinal):** Orijinal saklanan renkli görüntüyü geri yükler.
-4. **10x10 Blok Ekle:** Görüntünün sol üst `[0:10, 0:10]` ve sağ alt `[h-10:h, w-10:w]` köşelerine 10x10 boyutunda siyah (değeri 0) iki blok yerleştirir. Küçük resimlerde taşma kontrolü mevcuttur.
+4. **10x10 Rastgele Blok Ekle:** Görüntünün rastgele koordinatlarına 10x10 boyutunda siyah (değeri 0) bloklar yerleştirir. Dizi sınırları dışına taşmaması için `[0, h - 10]` ve `[0, w - 10]` aralıklarında sınır kontrolü yapılır.
 5. **Kaydet (PNG):** Mevcut çalışma görüntüsünü kayıpsız PNG formatında diske kaydeder (böylece siyah piksel değerleri kesinlikle 0 olarak kalır).
 
 ---
